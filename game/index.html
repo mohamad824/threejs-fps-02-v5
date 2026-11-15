@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>APERTURE — Twilight Siege at Starfall Observatory</title>
+<script type="importmap">
+{"imports":{"three":"./three.module.min.js"}}
+</script>
+<style>
+:root{--amber:#ffb454;--amber2:#ff8f2e;--indigo:#121a33;--ink:#0a0e1e;--paper:#f2ead8;--good:#7ee2a0;--bad:#ff6a5e;--apo:#ffb454;--per:#6ec3ff}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#070a18;color:var(--paper);
+font-family:"Segoe UI",system-ui,"Helvetica Neue",Arial,sans-serif;-webkit-user-select:none;user-select:none}
+#app{position:fixed;inset:0}
+#app canvas{display:block}
+#hud{position:fixed;inset:0;pointer-events:none;z-index:5}
+.panel{background:rgba(8,12,28,.62);border:1px solid rgba(255,180,84,.35);border-radius:6px;
+backdrop-filter:blur(2px)}
+/* radar top-left */
+#radarWrap{position:absolute;top:14px;left:14px;width:168px;height:168px;padding:6px}
+#radar{width:100%;height:100%;display:block}
+#radarWrap .cap{position:absolute;left:8px;bottom:4px;font-size:10px;letter-spacing:.18em;color:#cdbf9f}
+/* top centre */
+#topbar{position:absolute;top:14px;left:50%;transform:translateX(-50%);text-align:center;min-width:340px;padding:7px 16px 6px}
+#topbar .scores{display:flex;align-items:center;justify-content:center;gap:14px;font-weight:800;font-size:22px;letter-spacing:.06em}
+#scoreA{color:var(--apo)}#scoreB{color:var(--per)}
+#roundTimer{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums}
+#roundLabel{font-size:10px;letter-spacing:.28em;color:#cdbf9f;margin-top:1px}
+#aliveRow{display:flex;justify-content:center;gap:4px;margin-top:4px}
+.pip{width:16px;height:5px;border-radius:2px;background:#3a4468}
+.pip.a{background:var(--apo)}.pip.b{background:var(--per)}.pip.dead{opacity:.18}
+/* killfeed top-right */
+#killfeed{position:absolute;top:14px;right:14px;width:300px;text-align:right;font-size:13px}
+.kf{margin-bottom:4px;padding:3px 8px;background:rgba(8,12,28,.6);border-radius:4px;border-right:3px solid var(--amber)}
+.kf b{color:var(--amber)}.kf .wpn{color:#9fb4d8;font-size:11px;letter-spacing:.08em}
+.kf .hs{color:#ffd76a}
+/* plan + radio left */
+#planLine{position:absolute;top:196px;left:14px;padding:6px 10px;font-size:12px;letter-spacing:.12em;font-weight:700;color:#ffe2b0}
+#planLine em{color:var(--amber);font-style:normal}
+#radio{position:absolute;top:232px;left:14px;width:290px;font-size:12px;line-height:1.45}
+.radioLine{margin-bottom:3px;padding:3px 8px;background:rgba(8,12,28,.55);border-left:3px solid var(--per);border-radius:3px}
+.radioLine b{color:#9fd0ff}.radioLine .role{color:var(--amber);font-size:10px;letter-spacing:.14em}
+/* teammate list */
+#mates{position:absolute;left:14px;bottom:118px;width:226px;padding:8px 10px;font-size:11px}
+#mates h4{font-size:10px;letter-spacing:.24em;color:#cdbf9f;margin-bottom:6px;font-weight:700}
+.mate{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.mate .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mate .bar{width:64px;height:6px;background:#2a3355;border-radius:3px;overflow:hidden}
+.mate .bar i{display:block;height:100%;background:var(--good)}
+.mate .hp{width:26px;text-align:right;font-variant-numeric:tabular-nums}
+.mate.dead{opacity:.35}.mate .chip{font-size:9px;color:#0a0e1e;background:var(--amber);border-radius:3px;padding:1px 4px;font-weight:800}
+/* bottom-left health/armour */
+#vitals{position:absolute;left:14px;bottom:16px;padding:10px 14px;display:flex;gap:18px;align-items:flex-end}
+#vitals .big{font-size:38px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+#vitals .lab{font-size:10px;letter-spacing:.26em;color:#cdbf9f}
+#armourVal{font-size:22px;font-weight:700;color:#9fd0ff}
+#hpBar{width:150px;height:7px;background:#2a3355;border-radius:3px;overflow:hidden;margin-top:6px}
+#hpBar i{display:block;height:100%;background:linear-gradient(90deg,#ffb454,#ff8f2e)}
+/* bottom-right ammo */
+#ammoBox{position:absolute;right:14px;bottom:16px;padding:10px 16px;text-align:right;min-width:210px}
+#ammoMag{font-size:44px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+#ammoRes{font-size:18px;color:#9fb4d8;font-variant-numeric:tabular-nums}
+#wpnName{font-size:12px;letter-spacing:.2em;color:var(--amber);font-weight:700;margin-top:2px}
+#fireMode{font-size:10px;letter-spacing:.2em;color:#cdbf9f}
+#moneyBox{position:absolute;right:14px;bottom:132px;padding:7px 12px;font-size:20px;font-weight:800;color:#b8f0c8;font-variant-numeric:tabular-nums}
+#moneyBox small{font-size:10px;letter-spacing:.2em;color:#cdbf9f;display:block;font-weight:600}
+#nadeBox{position:absolute;right:14px;bottom:196px;padding:7px 10px;font-size:12px;display:flex;gap:10px}
+#nadeBox .nd.sel{color:var(--amber);font-weight:800}
+/* crosshair + hitmarker */
+#cross{position:absolute;left:50%;top:50%;width:0;height:0}
+#cross i{position:absolute;background:#ffe9c4;box-shadow:0 0 3px #000}
+#cross .h{width:8px;height:2px;top:-1px}#cross .v{width:2px;height:8px;left:-1px}
+#hitmark{position:absolute;left:50%;top:50%;width:26px;height:26px;transform:translate(-50%,-50%) rotate(45deg);opacity:0}
+#hitmark i{position:absolute;background:#fff}
+#hitmark i:nth-child(1){left:11px;top:0;width:4px;height:8px}#hitmark i:nth-child(2){left:11px;bottom:0;width:4px;height:8px}
+#hitmark i:nth-child(3){top:11px;left:0;height:4px;width:8px}#hitmark i:nth-child(4){top:11px;right:0;height:4px;width:8px}
+#hitmark.hs i{background:#ffd76a}
+/* damage numbers + name tags */
+#dmgLayer,#tagLayer{position:absolute;inset:0;overflow:hidden}
+.dmg{position:absolute;font-weight:800;font-size:19px;color:#fff;text-shadow:0 1px 4px #000,0 0 8px rgba(255,180,84,.6);transform:translate(-50%,-50%)}
+.dmg.hs{color:#ffd76a;font-size:25px;letter-spacing:.05em}
+.tag{position:absolute;transform:translate(-50%,-100%);text-align:center;font-size:11px;letter-spacing:.08em;text-shadow:0 1px 3px #000;white-space:nowrap}
+.tag .tbar{width:46px;height:4px;background:rgba(0,0,0,.55);border-radius:2px;margin:2px auto 0;overflow:hidden}
+.tag .tbar i{display:block;height:100%}
+.tag.foe{color:#ffb0a8}.tag.friend{color:#bfe3ff}
+/* plant ring + objective */
+#objBox{position:absolute;left:50%;bottom:170px;transform:translateX(-50%);text-align:center;display:none}
+#objBox .ring{width:74px;height:74px;margin:0 auto}
+#objBox .lbl{font-size:12px;letter-spacing:.22em;font-weight:700;margin-top:2px;text-shadow:0 1px 3px #000}
+#chargeChip{position:absolute;left:50%;top:96px;transform:translateX(-50%);padding:5px 12px;font-size:12px;letter-spacing:.14em;font-weight:700;display:none}
+#chargeChip b{color:var(--amber)}
+#plantedBar{position:absolute;left:50%;top:128px;transform:translateX(-50%);width:280px;display:none;text-align:center}
+#plantedBar .lbl{font-size:11px;letter-spacing:.24em;color:#ffb0a8;font-weight:700}
+#plantedBar .tr{height:6px;background:#3a2030;border-radius:3px;overflow:hidden;margin-top:3px}
+#plantedBar .tr i{display:block;height:100%;background:#ff6a5e}
+/* centre hint + banner */
+#hint{position:absolute;left:50%;bottom:250px;transform:translateX(-50%);font-size:14px;letter-spacing:.1em;text-shadow:0 1px 4px #000;background:rgba(8,12,28,.55);padding:5px 12px;border-radius:4px;display:none}
+#banner{position:absolute;left:50%;top:21%;transform:translate(-50%,-50%);text-align:center;display:none}
+#banner h2{font-size:44px;letter-spacing:.14em;font-weight:800;text-shadow:0 2px 18px rgba(0,0,0,.8)}
+#banner p{font-size:14px;letter-spacing:.3em;color:#e8dcbf;margin-top:4px}
+#banner.win h2{color:var(--amber)}#banner.lose h2{color:#7fb2e8}
+/* buy menu */
+#buyMenu{position:absolute;inset:0;display:none;align-items:center;justify-content:center;pointer-events:auto;background:rgba(4,6,16,.45)}
+#buyMenu .sheet{width:860px;max-width:94vw;max-height:92vh;overflow:auto;background:rgba(10,14,30,.94);border:1px solid rgba(255,180,84,.5);border-radius:10px;padding:18px 20px}
+#buyMenu h2{font-size:22px;letter-spacing:.18em}#buyMenu h2 span{color:var(--amber)}
+#buyMenu .sub{font-size:12px;color:#cdbf9f;letter-spacing:.12em;margin:2px 0 12px}
+#buyGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.buyItem{display:flex;gap:10px;align-items:center;border:1px solid #2a3355;border-radius:6px;padding:8px 10px;cursor:pointer;background:rgba(20,28,54,.5)}
+.buyItem:hover{border-color:var(--amber)}
+.buyItem.owned{border-color:var(--good)}
+.buyItem.cant{opacity:.45}
+.buyItem .ic{width:44px;height:30px;flex:none;border-radius:4px;background:linear-gradient(135deg,#2b3a66,#141c38);display:flex;align-items:center;justify-content:center;font-size:16px}
+.buyItem .tx{flex:1}.buyItem .nm{font-weight:800;letter-spacing:.08em;font-size:14px}
+.buyItem .cls{font-size:10px;letter-spacing:.2em;color:#9fb4d8}
+.buyItem .fl{font-size:11px;color:#cdbf9f;font-style:italic}
+.buyItem .pr{font-weight:800;color:#b8f0c8;font-size:16px}
+#buyFoot{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:13px}
+#buyFoot b{color:#b8f0c8;font-size:18px}
+/* scoreboard */
+#scoreboard{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(4,6,16,.5)}
+#scoreboard .sheet{width:640px;max-width:92vw;background:rgba(10,14,30,.95);border:1px solid rgba(255,180,84,.5);border-radius:10px;padding:16px 20px}
+#scoreboard h2{font-size:16px;letter-spacing:.16em;text-align:center;margin-bottom:10px;white-space:nowrap}
+.sbRow{display:flex;gap:8px;padding:4px 6px;font-size:13px;border-bottom:1px solid #222a48}
+.sbRow.head{font-size:10px;letter-spacing:.2em;color:#cdbf9f}
+.sbRow .a{flex:1}.sbRow .b{width:44px;text-align:center}.sbRow .c{width:70px;text-align:right;color:#b8f0c8}
+.sbRow.me{background:rgba(255,180,84,.12)}
+/* overlays */
+#flashOv{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:8}
+#vig{position:fixed;inset:0;pointer-events:none;z-index:6;opacity:0;background:radial-gradient(ellipse at center,transparent 55%,rgba(200,20,20,.55) 100%)}
+#scopeOv{position:fixed;inset:0;pointer-events:none;z-index:6;display:none;background:radial-gradient(circle at center,transparent 31%,#05070f 32%)}
+#startOv{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 38%,rgba(30,42,88,.88),rgba(5,7,17,.96));pointer-events:auto;cursor:pointer}
+#startOv .card{text-align:center;max-width:660px;padding:20px}
+#startOv h1{font-size:56px;letter-spacing:.3em;font-weight:800;color:var(--paper)}
+#startOv h1 span{color:var(--amber)}
+#startOv h3{font-size:13px;letter-spacing:.34em;color:#9fb4d8;font-weight:600;margin:4px 0 14px}
+#startOv p{font-size:14px;line-height:1.6;color:#d8cdb2}
+#startOv .plan{margin:14px auto;padding:10px 14px;border:1px solid rgba(255,180,84,.5);border-radius:6px;font-size:13px;letter-spacing:.1em;background:rgba(255,180,84,.07)}
+#startOv .go{margin-top:16px;font-size:15px;letter-spacing:.26em;color:var(--amber);font-weight:800}
+#startOv .ctl{margin-top:12px;font-size:11px;letter-spacing:.12em;color:#8fa0c4;line-height:1.8}
+#toast{position:absolute;left:50%;bottom:300px;transform:translateX(-50%);font-size:13px;letter-spacing:.14em;background:rgba(8,12,28,.7);padding:6px 14px;border-radius:4px;display:none}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="hud">
+  <div id="radarWrap" class="panel"><canvas id="radar" width="336" height="336"></canvas><div class="cap">STARFALL OBSERVATORY</div></div>
+  <div id="topbar" class="panel">
+    <div class="scores"><span id="scoreA">0</span><span id="roundTimer">1:40</span><span id="scoreB">0</span></div>
+    <div id="roundLabel">ROUND 1 · FIRST TO 7 · APOGEE ATTACKS</div>
+    <div id="aliveRow"></div>
+  </div>
+  <div id="killfeed"></div>
+  <div id="planLine" class="panel">PLAN: <em>SPLIT B — YOU: ENTRY</em> · CARRIER: LYRA</div>
+  <div id="radio"></div>
+  <div id="mates" class="panel"><h4>APOGEE · YOUR CREW</h4><div id="mateList"></div></div>
+  <div id="vitals" class="panel">
+    <div><div class="big" id="hpVal">100</div><div class="lab">INTEGRITY</div><div id="hpBar"><i style="width:100%"></i></div></div>
+    <div><div id="armourVal">50</div><div class="lab">ARMOUR</div></div>
+  </div>
+  <div id="ammoBox" class="panel">
+    <div><span id="ammoMag">30</span> <span id="ammoRes">/ 90</span></div>
+    <div id="wpnName">NOVA-9</div><div id="fireMode">AUTO · RIFLE</div>
+  </div>
+  <div id="moneyBox" class="panel"><small>FUNDS</small>$<span id="moneyVal">800</span></div>
+  <div id="nadeBox" class="panel"></div>
+  <div id="cross"><i class="h" id="chL"></i><i class="h" id="chR"></i><i class="v" id="chT"></i><i class="v" id="chB"></i></div>
+  <div id="hitmark"><i></i><i></i><i></i><i></i></div>
+  <div id="tagLayer"></div>
+  <div id="dmgLayer"></div>
+  <div id="objBox"><svg class="ring" viewBox="0 0 80 80"><circle cx="40" cy="40" r="34" fill="rgba(8,12,28,.6)" stroke="#2a3355" stroke-width="6"/><circle id="ringFg" cx="40" cy="40" r="34" fill="none" stroke="#ffb454" stroke-width="6" stroke-linecap="round" stroke-dasharray="213.6" stroke-dashoffset="213.6" transform="rotate(-90 40 40)"/></svg><div class="lbl" id="objLabel">PLANTING…</div></div>
+  <div id="chargeChip" class="panel">◈ SIGNAL CHARGE — CARRIED BY <b id="chargeWho">LYRA</b></div>
+  <div id="plantedBar"><div class="lbl">⚠ CHARGE ARMED — <span id="plantSite">DISH B</span></div><div class="tr"><i id="plantFill"></i></div></div>
+  <div id="hint"></div>
+  <div id="banner"><h2 id="bannerTitle"></h2><p id="bannerSub"></p></div>
+  <div id="toast"></div>
+  <div id="buyMenu"><div class="sheet">
+    <h2>SUPPLY CRATE <span>· BUY PHASE</span></h2>
+    <div class="sub" id="buySub">SPEND BEFORE THE ROUND OPENS — PRESS B TO CLOSE · FUNDS CARRY BETWEEN ROUNDS</div>
+    <div id="buyGrid"></div>
+    <div id="buyFoot"><span id="buyTeam"></span><span>FUNDS <b id="buyMoney">$800</b></span></div>
+  </div></div>
+  <div id="scoreboard"><div class="sheet"><h2 id="sbTitle">STARFALL OBSERVATORY — MATCH</h2><div id="sbBody"></div></div></div>
+</div>
+<div id="vig"></div>
+<div id="scopeOv"></div>
+<div id="flashOv"></div>
+<div id="startOv"><div class="card">
+  <h1>APER<span>TURE</span></h1>
+  <h3>TWILIGHT SIEGE AT STARFALL OBSERVATORY</h3>
+  <p>Five against five on a mountaintop. Your crew storms the observatory to plant the
+  signal charge on the great radio dish — or holds the domes against the night.
+  One twist of the searchlight, one held angle, one clean headshot.</p>
+  <div class="plan">PLAN: SPLIT B — YOU ARE THE ENTRY · LYRA CARRIES THE CHARGE · VEGA HOLDS MID · RIGEL LURKS A</div>
+  <div class="go">CLICK TO DEPLOY</div>
+  <div class="ctl">WASD MOVE · MOUSE LOOK · LMB FIRE / THROW · R RELOAD · 1–7 WEAPONS &amp; GRENADES · E PLANT / DEFUSE<br>
+  SHIFT WALK · CTRL / C CROUCH · B BUY · TAB SCOREBOARD · RIGHT-CLICK SCOPE (ZENITH DMR)</div>
+</div></div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
